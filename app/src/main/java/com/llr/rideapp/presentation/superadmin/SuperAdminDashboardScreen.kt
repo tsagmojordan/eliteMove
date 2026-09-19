@@ -4,6 +4,7 @@ import com.llr.rideapp.utils.log
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AdminPanelSettings
 import androidx.compose.material.icons.filled.DirectionsCar
 import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.People
@@ -18,6 +19,8 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.llr.rideapp.data.remote.websocket.CallEvent
+import com.llr.rideapp.data.remote.websocket.CallRealtimeManager
 import com.llr.rideapp.domain.repository.AuthRepository
 import com.llr.rideapp.domain.repository.NotificationRepository
 import com.llr.rideapp.presentation.common.*
@@ -28,7 +31,8 @@ import javax.inject.Inject
 @HiltViewModel
 class SuperAdminDashboardViewModel @Inject constructor(
     private val authRepository: AuthRepository,
-    private val notificationRepository: NotificationRepository
+    private val notificationRepository: NotificationRepository,
+    val callRealtimeManager: CallRealtimeManager
 ) : ViewModel() {
 
     var unreadCount by mutableStateOf(0)
@@ -37,6 +41,10 @@ class SuperAdminDashboardViewModel @Inject constructor(
     init {
         log.debug("[SuperAdminDashboardScreen] --init")
         fetchUnreadCount()
+        viewModelScope.launch { callRealtimeManager.start() }
+        viewModelScope.launch {
+            callRealtimeManager.notificationEvents.collect { fetchUnreadCount() }
+        }
     }
 
     private fun fetchUnreadCount() {
@@ -60,6 +68,7 @@ class SuperAdminDashboardViewModel @Inject constructor(
 fun SuperAdminDashboardScreen(
     viewModel: SuperAdminDashboardViewModel = hiltViewModel(),
     onNavigateToUsers: () -> Unit,
+    onNavigateToRoles: () -> Unit,
     onNavigateToRides: () -> Unit,
     onNavigateToVehicles: () -> Unit,
     onNavigateToNotifications: () -> Unit,
@@ -74,6 +83,15 @@ fun SuperAdminDashboardScreen(
                 onNotificationClick = onNavigateToNotifications,
                 onLogout = { viewModel.logout(onLogoutComplete = onLogout) }
             )
+
+            // Appels entrants poussés par le backend sur /user/queue/calls (contrat C7)
+            LaunchedEffect(Unit) {
+                viewModel.callRealtimeManager.callEvents.collect { event ->
+                    if (event is CallEvent.IncomingCall) {
+                        onNavigateToCall(event.callId, event.callType, true, event.callerId)
+                    }
+                }
+            }
 
             Column(
                 modifier = Modifier
@@ -95,7 +113,26 @@ fun SuperAdminDashboardScreen(
                         Spacer(modifier = Modifier.width(16.dp))
                         Column {
                             Text("Gestion des Utilisateurs", fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                            Text("Activer/Désactiver des comptes", color = TextSecondary)
+                            Text("Activer/Désactiver, rôles, suppression", color = TextSecondary)
+                        }
+                    }
+                }
+
+                AppCard(
+                    modifier = Modifier.fillMaxWidth(),
+                    onClick = onNavigateToRoles
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Filled.AdminPanelSettings,
+                            contentDescription = null,
+                            tint = AccentGold,
+                            modifier = Modifier.size(48.dp)
+                        )
+                        Spacer(modifier = Modifier.width(16.dp))
+                        Column {
+                            Text("Gestion des Rôles", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                            Text("Créer, lister et supprimer des rôles", color = TextSecondary)
                         }
                     }
                 }

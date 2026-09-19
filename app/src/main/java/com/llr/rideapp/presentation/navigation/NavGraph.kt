@@ -17,6 +17,7 @@ import com.llr.rideapp.presentation.client.ClientNewRideScreen
 import com.llr.rideapp.presentation.client.ClientRideHistoryScreen
 import com.llr.rideapp.presentation.notification.NotificationsScreen
 import com.llr.rideapp.presentation.superadmin.SuperAdminDashboardScreen
+import com.llr.rideapp.presentation.superadmin.SuperAdminRolesScreen
 import com.llr.rideapp.presentation.superadmin.SuperAdminUsersScreen
 
 @Composable
@@ -109,6 +110,7 @@ fun RideAppNavGraph(
         composable(Routes.SUPER_ADMIN_DASHBOARD) {
             SuperAdminDashboardScreen(
                 onNavigateToUsers = { navController.navigate(Routes.SUPER_ADMIN_USERS) },
+                onNavigateToRoles = { navController.navigate(Routes.SUPER_ADMIN_ROLES) },
                 onNavigateToRides = { navController.navigate(Routes.ADMIN_RIDES) },
                 onNavigateToVehicles = { navController.navigate(Routes.ADMIN_VEHICLES) },
                 onNavigateToNotifications = { navController.navigate(Routes.NOTIFICATIONS) },
@@ -121,6 +123,10 @@ fun RideAppNavGraph(
 
         composable(Routes.SUPER_ADMIN_USERS) {
             SuperAdminUsersScreen(onBack = { navController.popBackStack() })
+        }
+
+        composable(Routes.SUPER_ADMIN_ROLES) {
+            SuperAdminRolesScreen(onBack = { navController.popBackStack() })
         }
 
         // ─── Shared ───────────────────────────────────────────────────────────

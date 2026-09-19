@@ -14,6 +14,16 @@ data class ApiResponse<T>(
     @SerializedName("timestamp") val timestamp: String?
 )
 
+// Réponse paginée du backend : { content: [...], pageNumber, pageSize, totalElements, totalPages, last }
+data class PaginatedResponse<T>(
+    @SerializedName("content")       val content: List<T>?,
+    @SerializedName("pageNumber")    val pageNumber: Int?,
+    @SerializedName("pageSize")      val pageSize: Int?,
+    @SerializedName("totalElements") val totalElements: Long?,
+    @SerializedName("totalPages")    val totalPages: Int?,
+    @SerializedName("last")          val last: Boolean?
+)
+
 // ─── Auth DTOs ────────────────────────────────────────────────────────────────
 
 data class LoginRequest(
@@ -68,8 +78,9 @@ data class PermissionResponse(
     @SerializedName("updatedAt")   val updatedAt: String?
 )
 
-data class RefreshTokenRequest(
-    @SerializedName("refreshToken") val refreshToken: String
+data class RoleRequest(
+    @SerializedName("name")        val name: String,
+    @SerializedName("description") val description: String?
 )
 
 // ─── User DTOs ────────────────────────────────────────────────────────────────
@@ -111,10 +122,13 @@ data class RideDto(
     @SerializedName("status") val status: String?,
     @SerializedName("requestedAt") val requestedAt: String?,
     @SerializedName("completedAt") val completedAt: String?,
+    // Ajouté côté backend (contrat C8) — null tant que la course n'est pas acceptée
     @SerializedName("price") val price: Double?
 )
 
-// ─── Vehicle DTOs ─────────────────────────────────────────────────────────────
+// ─── Vehicle DTOs ──────────────────────────────────────────────────────────────
+// Le backend renvoie les listes de véhicules en DTO BRUT (sans wrapper ApiResponse)
+// et utilise le champ `status` (enum VehiculeStatus), pas un booléen `available`.
 
 data class VehicleDto(
     @SerializedName("id") val id: String?,
@@ -123,7 +137,7 @@ data class VehicleDto(
     @SerializedName("year") val year: Int?,
     @SerializedName("licensePlate") val licensePlate: String?,
     @SerializedName("vehiculeClass") val vehiculeClass: String?,
-    @SerializedName("available") val available: Boolean?,
+    @SerializedName("status") val status: String?,
     @SerializedName("price") val price: Double?
 )
 
@@ -132,24 +146,37 @@ data class CreateVehicleRequest(
     @SerializedName("model") val model: String,
     @SerializedName("year") val year: Int,
     @SerializedName("licensePlate") val licensePlate: String,
-    @SerializedName("vehiculeClass") val vehiculeClass: String
+    @SerializedName("vehiculeClass") val vehiculeClass: String,
+    @SerializedName("price") val price: Int
 )
 
-// ─── Call DTOs ────────────────────────────────────────────────────────────────
+// ─── Call DTOs ─────────────────────────────────────────────────────────────────
+// POST /api/v1/calls renvoie InitiateCallResponse BRUT (contrat C3), pas un wrapper.
 
 data class InitiateCallRequest(
     @SerializedName("calleeId") val calleeId: String,
     @SerializedName("callType") val callType: String // "AUDIO" | "VIDEO"
 )
 
+data class InitiateCallResponse(
+    @SerializedName("callId") val callId: String?,
+    @SerializedName("message") val message: String?
+)
+
+// GET /api/v1/calls/history renvoie une liste BRUTE de CallResponse.
 data class CallDto(
     @SerializedName("id") val id: String?,
     @SerializedName("callerId") val callerId: String?,
     @SerializedName("calleeId") val calleeId: String?,
     @SerializedName("callType") val callType: String?,
     @SerializedName("status") val status: String?,
-    @SerializedName("startedAt") val startedAt: String?,
-    @SerializedName("endedAt") val endedAt: String?
+    @SerializedName("createdAt") val createdAt: String?,
+    @SerializedName("answeredAt") val answeredAt: String?,
+    @SerializedName("endedAt") val endedAt: String?,
+    @SerializedName("durationSeconds") val durationSeconds: Long?,
+    @SerializedName("endReason") val endReason: String?,
+    @SerializedName("isActive") val isActive: Boolean?,
+    @SerializedName("isTerminated") val isTerminated: Boolean?
 )
 
 data class SignalingRequest(
@@ -161,17 +188,16 @@ data class EndCallRequest(
     @SerializedName("reason") val reason: String = "NORMAL"
 )
 
-// ─── Notification DTOs ────────────────────────────────────────────────────────
+// ─── Notification DTOs ─────────────────────────────────────────────────────────
+// Contrat C4 : champ `subject` (pas `title`) ; unread count = ApiResponse<Long> ;
+// markAsRead / read-all renvoient ApiResponse<Void>.
 
 data class NotificationDto(
     @SerializedName("id") val id: String?,
-    @SerializedName("title") val title: String?,
+    @SerializedName("subject") val subject: String?,
     @SerializedName("message") val message: String?,
     @SerializedName("read") val read: Boolean?,
+    @SerializedName("priority") val priority: String?,
+    @SerializedName("templateCode") val templateCode: String?,
     @SerializedName("createdAt") val createdAt: String?
-)
-
-data class UnreadCountDto(
-    @SerializedName("count") val count: Int?,
-    @SerializedName("unreadCount") val unreadCount: Int?
 )

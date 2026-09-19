@@ -16,8 +16,10 @@ object RepositoryModule {
 
     @Provides
     @Singleton
-    fun provideUserRepository(userApiService: UserApiService): UserRepository =
-        UserRepositoryImpl(userApiService)
+    fun provideUserRepository(
+        userApiService: UserApiService,
+        roleApiService: RoleApiService
+    ): UserRepository = UserRepositoryImpl(userApiService, roleApiService)
 
     @Provides
     @Singleton

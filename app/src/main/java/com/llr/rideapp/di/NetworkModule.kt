@@ -3,6 +3,7 @@ package com.llr.rideapp.di
 import com.llr.rideapp.data.remote.api.*
 import com.llr.rideapp.data.remote.interceptor.AuthInterceptor
 import com.llr.rideapp.data.remote.interceptor.TokenAuthenticator
+import com.llr.rideapp.utils.ApiConfig
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -18,8 +19,8 @@ import javax.inject.Singleton
 @InstallIn(SingletonComponent::class)
 object NetworkModule {
 
-    //private const val BASE_URL = "http://10.0.2.2:8080/"
-    private const val BASE_URL = "http://147.79.118.51:7820/"
+    // Adresse serveur confirmée — voir utils/ApiConfig.kt
+    private const val BASE_URL = ApiConfig.BASE_URL
 
     @Provides
     @Singleton
@@ -65,6 +66,11 @@ object NetworkModule {
     @Singleton
     fun provideUserApiService(retrofit: Retrofit): UserApiService =
         retrofit.create(UserApiService::class.java)
+
+    @Provides
+    @Singleton
+    fun provideRoleApiService(retrofit: Retrofit): RoleApiService =
+        retrofit.create(RoleApiService::class.java)
 
     @Provides
     @Singleton

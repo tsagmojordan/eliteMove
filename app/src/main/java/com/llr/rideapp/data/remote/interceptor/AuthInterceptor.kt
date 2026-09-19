@@ -67,10 +67,12 @@ class TokenAuthenticator @Inject constructor(
         }
 
         // Appel synchrone au endpoint de refresh (sans intercepteur pour éviter la récursion)
+        // Contrat C1 : le refresh token est envoyé dans le header Authorization: Bearer <refresh>,
+        // PAS dans un body JSON.
         val refreshClient = OkHttpClient.Builder().build()
         val refreshBody = okhttp3.RequestBody.create(
             "application/json".toMediaType(),
-            """{"refreshToken":"$refreshToken"}"""
+            ""
         )
         val refreshRequest = Request.Builder()
             .url(
@@ -78,6 +80,7 @@ class TokenAuthenticator @Inject constructor(
                 ":${response.request.url.port}/api/v1/auth/refresh"
             )
             .post(refreshBody)
+            .header("Authorization", "Bearer $refreshToken")
             .header("X-Retry-With-Refresh", "true")
             .build()
 

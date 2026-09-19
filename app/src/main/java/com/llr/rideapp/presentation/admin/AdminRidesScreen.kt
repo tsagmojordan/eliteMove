@@ -112,10 +112,14 @@ fun AdminRidesScreen(
                             Spacer(modifier = Modifier.height(8.dp))
                             Text("De: ${ride.pickupLocation}", color = TextSecondary)
                             Text("Vers: ${ride.dropoffLocation}", color = TextSecondary)
+                            ride.price?.let {
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text("Prix: $it FCFA", color = AccentGold, fontSize = 13.sp)
+                            }
                             Spacer(modifier = Modifier.height(16.dp))
 
-                            // Action: Accepter
-                            if (ride.status == "PENDING" || ride.status == "REQUESTED") {
+                            // Action: Accepter — statut initial backend : REQUESTED
+                            if (ride.status == "REQUESTED") {
                                 RideAppButton(
                                     text = "ACCEPTER",
                                     onClick = { viewModel.updateStatus(ride.id, "ACCEPTED") },

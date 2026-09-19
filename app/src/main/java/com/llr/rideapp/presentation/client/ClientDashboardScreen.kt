@@ -36,6 +36,8 @@ import com.google.android.gms.maps.model.LatLng
 import com.google.maps.android.compose.*
 import com.llr.rideapp.data.local.TokenManager
 import com.llr.rideapp.data.remote.api.VehiculeApiService
+import com.llr.rideapp.data.remote.websocket.CallEvent
+import com.llr.rideapp.data.remote.websocket.CallRealtimeManager
 import com.llr.rideapp.domain.model.Ride
 import com.llr.rideapp.domain.model.VehiculeClass
 import com.llr.rideapp.domain.model.VehiculeDto
@@ -43,6 +45,7 @@ import com.llr.rideapp.domain.model.VehiculeStatus
 import com.llr.rideapp.domain.repository.AuthRepository
 import com.llr.rideapp.domain.repository.NotificationRepository
 import com.llr.rideapp.domain.repository.RideRepository
+import com.llr.rideapp.utils.ApiConfig
 import com.llr.rideapp.presentation.common.*
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.delay
@@ -78,7 +81,8 @@ class ClientDashboardViewModel @Inject constructor(
     private val authRepository: AuthRepository,
     private val notificationRepository: NotificationRepository,
     private val vehiculeApiService: VehiculeApiService,
-    private val rideRepository: RideRepository
+    private val rideRepository: RideRepository,
+    val callRealtimeManager: CallRealtimeManager
 ) : ViewModel() {
 
     var unreadCount by mutableStateOf(0)
@@ -106,6 +110,7 @@ class ClientDashboardViewModel @Inject constructor(
         log.debug("[ClientDashboardScreen] --init")
         fetchUnreadCount()
         loadVehicules()
+        observeRealtime()
     }
 
     private fun fetchUnreadCount() {
@@ -116,18 +121,30 @@ class ClientDashboardViewModel @Inject constructor(
         }
     }
 
+    /** Connexion WebSocket + rafraîchissement du badge à chaque notification temps réel. */
+    private fun observeRealtime() {
+        viewModelScope.launch { callRealtimeManager.start() }
+        viewModelScope.launch {
+            callRealtimeManager.notificationEvents.collect { fetchUnreadCount() }
+        }
+    }
+
     fun loadVehicules() {
         log.debug("[ClientDashboardScreen] --loadVehicules")
         viewModelScope.launch {
             _uiState.value = VehiculeUiState.Loading
             try {
-                _vehicules.value = vehiculeApiService.getAllVehicules()
+                // Endpoints /with-thumbnails : liste + miniature Base64 en une requête
+                _vehicules.value = vehiculeApiService.getAllWithThumbnails()
                 _uiState.value = VehiculeUiState.Success
             } catch (e: Exception) {
                 _uiState.value = VehiculeUiState.Error(e.message ?: "Erreur réseau")
             }
         }
     }
+
+    /** Token d'accès pour charger les photos via Coil (header Authorization). */
+    fun accessToken(): String? = tokenManager.getAccessToken()
 
     fun selectClass(cls: VehiculeClass?) { _selectedClass.value = cls }
 
@@ -181,6 +198,29 @@ fun ClientDashboardScreen(
     var userLocation by remember { mutableStateOf<LatLng?>(null) }
     var selectedVehicule by remember { mutableStateOf<VehiculeDto?>(null) }
     var orderPopupVehicule by remember { mutableStateOf<VehiculeDto?>(null) }
+
+    // Appels entrants poussés par le backend sur /user/queue/calls (contrat C7)
+    LaunchedEffect(Unit) {
+        viewModel.callRealtimeManager.callEvents.collect { event ->
+            if (event is CallEvent.IncomingCall) {
+                onNavigateToCall(event.callId, event.callType, true, event.callerId)
+            }
+        }
+    }
+
+    // Détail du véhicule sélectionné (photos pleine résolution via les endpoints /photoN)
+    selectedVehicule?.let { vehicule ->
+        VehiculeDetailDialog(
+            vehicule = vehicule,
+            accessToken = viewModel.accessToken(),
+            onDismiss = { selectedVehicule = null },
+            onCommand = {
+                selectedVehicule = null
+                viewModel.resetOrderState()
+                orderPopupVehicule = vehicule
+            }
+        )
+    }
 
     GradientBackground {
         Scaffold(
@@ -597,10 +637,14 @@ fun VehiculeCard(
                     .background(Color.White),
                 contentAlignment = Alignment.Center
             ) {
-                if (!vehicule.imagePath.isNullOrBlank()) {
+                // Miniature Base64 renvoyée par les endpoints /with-thumbnails
+                val thumbnail = vehicule.thumbnail
+                if (!thumbnail.isNullOrBlank()) {
+                    val dataUri = if (thumbnail.startsWith("data:")) thumbnail
+                                  else "data:image/jpeg;base64,$thumbnail"
                     AsyncImage(
                         model = ImageRequest.Builder(LocalContext.current)
-                            .data(vehicule.imagePath)
+                            .data(dataUri)
                             .crossfade(true)
                             .build(),
                         contentDescription = "Image véhicule",
@@ -615,16 +659,20 @@ fun VehiculeCard(
                         modifier = Modifier.size(48.dp)
                     )
                 }
-                // Badge DISPO
+                // Badge de disponibilité basé sur le statut réel du véhicule
+                val isAvailable = vehicule.status == VehiculeStatus.AVAILABLE
                 Box(
                     modifier = Modifier
                         .align(Alignment.TopEnd)
                         .padding(4.dp)
-                        .background(Color(0xFF4CAF50), CircleShape)
+                        .background(
+                            if (isAvailable) Color(0xFF4CAF50) else Color(0xFF9E9E9E),
+                            CircleShape
+                        )
                         .padding(horizontal = 6.dp, vertical = 2.dp)
                 ) {
                     Text(
-                        text = "DISPO",
+                        text = if (isAvailable) "DISPO" else "OCCUPÉ",
                         color = Color.White,
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Bold
@@ -668,4 +716,105 @@ fun VehiculeCard(
             }
         }
     }
+}
+
+// ─── Vehicle Detail Dialog ───────────────────────────────────────────────────
+
+/**
+ * Détail d'un véhicule : photos pleine résolution via GET /api/v1/vehicules/{id}/photoN
+ * (Coil, avec le header Authorization) + informations + action commander.
+ */
+@Composable
+fun VehiculeDetailDialog(
+    vehicule: VehiculeDto,
+    accessToken: String?,
+    onDismiss: () -> Unit,
+    onCommand: () -> Unit
+) {
+    val context = LocalContext.current
+
+    fun photoRequest(endpoint: String) = ImageRequest.Builder(context)
+        .data("${ApiConfig.BASE_URL}api/v1/vehicules/${vehicule.id}/$endpoint")
+        .apply {
+            accessToken?.let { addHeader("Authorization", "Bearer $it") }
+        }
+        .crossfade(true)
+        .build()
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = MaterialTheme.colorScheme.surface,
+        title = {
+            Column {
+                Text(
+                    text = "${vehicule.brand} ${vehicule.model} • ${vehicule.year}",
+                    color = AccentGold,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 18.sp
+                )
+                Text(
+                    text = "${vehicule.licensePlate} • ${vehicule.vehiculeClass?.name ?: ""}",
+                    color = TextSecondary,
+                    fontSize = 13.sp
+                )
+            }
+        },
+        text = {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    listOf("photo1", "photo2", "photo3").forEach { endpoint ->
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(90.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(Color.White),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            AsyncImage(
+                                model = photoRequest(endpoint),
+                                contentDescription = "Photo véhicule",
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(12.dp))
+                if (vehicule.price != null) {
+                    Text(
+                        text = "${vehicule.price} FCFA",
+                        color = AccentGold,
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 16.sp
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                }
+                vehicule.status?.let {
+                    Text(
+                        text = "Statut : ${it.name}",
+                        color = TextSecondary,
+                        fontSize = 13.sp
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = onCommand,
+                colors = ButtonDefaults.buttonColors(containerColor = AccentGold),
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Text("Commander", color = Color.White, fontWeight = FontWeight.Bold)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Fermer", color = TextSecondary)
+            }
+        }
+    )
 }

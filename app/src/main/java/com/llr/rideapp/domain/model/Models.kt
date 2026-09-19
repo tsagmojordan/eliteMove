@@ -52,6 +52,7 @@ data class Ride(
 )
 
 // ─── Vehicle ──────────────────────────────────────────────────────────────────
+// Contrat C6 : le backend expose un `status` (VehiculeStatus), pas un booléen `available`.
 
 data class Vehicle(
     val id: String,
@@ -60,7 +61,23 @@ data class Vehicle(
     val year: Int,
     val licensePlate: String,
     val vehiculeClass: String,
-    val available: Boolean
+    val status: String,
+    val price: Double?
+)
+
+/** Photo locale prête à être envoyée en multipart (part "photos"). */
+class VehiclePhoto(
+    val name: String,
+    val bytes: ByteArray,
+    val mimeType: String
+)
+
+// ─── Role (SuperAdmin) ────────────────────────────────────────────────────────
+
+data class Role(
+    val id: String,
+    val name: String,
+    val description: String?
 )
 
 // ─── Call ─────────────────────────────────────────────────────────────────────

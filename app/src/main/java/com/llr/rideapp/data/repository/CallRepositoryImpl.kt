@@ -13,15 +13,26 @@ class CallRepositoryImpl @Inject constructor(
 ) : CallRepository {
 
     override suspend fun initiateCall(calleeId: String, callType: String): Result<Call> = safeApiCall {
+        // Contrat C3 : réponse BRUTE InitiateCallResponse { callId, message }
         val response = callApiService.initiateCall(InitiateCallRequest(calleeId, callType))
-        response.body()?.data?.toModel() ?: throw Exception("Réponse d'appel manquante")
+        if (!response.isSuccessful) throw Exception("Erreur initiation appel (HTTP ${response.code()})")
+        val body = response.body() ?: throw Exception("Réponse d'appel manquante")
+        val callId = body.callId ?: throw Exception(body.message ?: "Identifiant d'appel manquant")
+        Call(
+            id = callId,
+            callerId = "",
+            calleeId = calleeId,
+            callType = callType,
+            status = "INITIATED",
+            startedAt = null,
+            endedAt = null
+        )
     }
 
     override suspend fun acceptCall(callId: String): Result<Call> = safeApiCall {
         val response = callApiService.acceptCall(callId)
         if (!response.isSuccessful) throw Exception("Erreur accepter appel")
-        // Return a dummy call object or fetch the actual call status if necessary.
-        // For 204 No Content, we just reflect the change locally.
+        // 204 No Content : on reflète le changement localement.
         Call(id = callId, callerId = "", calleeId = "", callType = "AUDIO", status = "ACCEPTED", startedAt = null, endedAt = null)
     }
 
@@ -44,8 +55,9 @@ class CallRepositoryImpl @Inject constructor(
     }
 
     override suspend fun getCallHistory(page: Int, size: Int): Result<List<Call>> = safeApiCall {
+        // Réponse BRUTE List<CallResponse> (contrat C3) ; createdAt → startedAt
         val response = callApiService.getCallHistory(page, size)
-        response.body()?.data?.map { it.toModel() } ?: emptyList()
+        response.body()?.map { it.toModel() } ?: emptyList()
     }
 
     private fun com.llr.rideapp.data.remote.dto.CallDto.toModel() = Call(
@@ -54,7 +66,7 @@ class CallRepositoryImpl @Inject constructor(
         calleeId = calleeId ?: "",
         callType = callType ?: "AUDIO",
         status = status ?: "UNKNOWN",
-        startedAt = startedAt,
+        startedAt = createdAt,
         endedAt = endedAt
     )
 }

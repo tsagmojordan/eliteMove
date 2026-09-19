@@ -7,10 +7,13 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Build
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -29,6 +32,7 @@ class AdminVehiclesViewModel @Inject constructor(
     private val vehicleRepository: VehicleRepository
 ) : ViewModel() {
 
+    // Flotte complète (tous statuts) — pas seulement les disponibles
     var vehicles by mutableStateOf<List<Vehicle>>(emptyList())
         private set
     var isLoading by mutableStateOf(false)
@@ -41,16 +45,40 @@ class AdminVehiclesViewModel @Inject constructor(
         loadVehicles()
     }
 
-    private fun loadVehicles() {
+    fun loadVehicles() {
         log.debug("[AdminVehiclesScreen] --loadVehicles")
         isLoading = true
         error = null
         viewModelScope.launch {
-            val result = vehicleRepository.getAvailableVehicles()
+            val result = vehicleRepository.getAllVehicles()
             isLoading = false
             result.fold(
                 onSuccess = { vehicles = it },
                 onFailure = { error = it.message ?: "Erreur chargement des véhicules" }
+            )
+        }
+    }
+
+    /** Bascule AVAILABLE ↔ MAINTENANCE (PATCH /api/v1/vehicules/{id}/status). */
+    fun toggleStatus(vehicle: Vehicle) {
+        log.debug("[AdminVehiclesScreen] --toggleStatus")
+        viewModelScope.launch {
+            val newStatus = if (vehicle.status == "AVAILABLE") "MAINTENANCE" else "AVAILABLE"
+            val result = vehicleRepository.updateVehicleStatus(vehicle.id, newStatus)
+            result.fold(
+                onSuccess = { loadVehicles() },
+                onFailure = { error = it.message ?: "Erreur changement de statut" }
+            )
+        }
+    }
+
+    fun deleteVehicle(vehicle: Vehicle) {
+        log.debug("[AdminVehiclesScreen] --deleteVehicle")
+        viewModelScope.launch {
+            val result = vehicleRepository.deleteVehicle(vehicle.id)
+            result.fold(
+                onSuccess = { loadVehicles() },
+                onFailure = { error = it.message ?: "Erreur suppression du véhicule" }
             )
         }
     }
@@ -62,6 +90,8 @@ fun AdminVehiclesScreen(
     onBack: () -> Unit,
     onNavigateToAddVehicle: () -> Unit
 ) {
+    var vehicleToDelete by remember { mutableStateOf<Vehicle?>(null) }
+
     GradientBackground {
         Column(modifier = Modifier.fillMaxSize()) {
             RideAppTopBar(
@@ -94,7 +124,7 @@ fun AdminVehiclesScreen(
                     if (viewModel.vehicles.isEmpty()) {
                         item {
                             Text(
-                                "Aucun véhicule disponible.",
+                                "Aucun véhicule dans la flotte.",
                                 color = TextSecondary,
                                 modifier = Modifier.padding(top = 32.dp).align(Alignment.CenterHorizontally)
                             )
@@ -102,6 +132,7 @@ fun AdminVehiclesScreen(
                     }
 
                     items(viewModel.vehicles) { vehicle ->
+                        val isAvailable = vehicle.status == "AVAILABLE"
                         AppCard(modifier = Modifier.fillMaxWidth()) {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
@@ -113,15 +144,71 @@ fun AdminVehiclesScreen(
                                     fontWeight = FontWeight.Bold,
                                     color = TextPrimary
                                 )
-                                StatusBadge(status = if (vehicle.available) "DISPONIBLE" else "INDISPONIBLE")
+                                StatusBadge(status = if (isAvailable) "DISPONIBLE" else vehicle.status)
                             }
                             Spacer(modifier = Modifier.height(8.dp))
                             Text("Immatriculation: ${vehicle.licensePlate}", color = TextSecondary)
                             Text("Classe: ${vehicle.vehiculeClass}", color = TextSecondary)
+                            vehicle.price?.let {
+                                Text("Prix: $it FCFA", color = AccentGold, fontSize = 13.sp)
+                            }
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                RideAppButton(
+                                    text = if (isAvailable) "MAINTENANCE" else "DISPONIBLE",
+                                    onClick = { viewModel.toggleStatus(vehicle) },
+                                    modifier = Modifier.weight(1f).height(44.dp),
+                                    icon = Icons.Filled.Build
+                                )
+                                IconButton(
+                                    onClick = { vehicleToDelete = vehicle },
+                                    modifier = Modifier.size(44.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Filled.Delete,
+                                        contentDescription = "Supprimer",
+                                        tint = ErrorRed
+                                    )
+                                }
+                            }
                         }
                     }
                 }
             }
         }
+    }
+
+    // Confirmation de suppression
+    vehicleToDelete?.let { vehicle ->
+        AlertDialog(
+            onDismissRequest = { vehicleToDelete = null },
+            containerColor = MaterialTheme.colorScheme.surface,
+            title = { Text("Supprimer le véhicule ?", color = AccentGold, fontWeight = FontWeight.Bold) },
+            text = {
+                Text(
+                    "${vehicle.brand} ${vehicle.model} (${vehicle.licensePlate}) sera définitivement supprimé.",
+                    color = TextSecondary
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.deleteVehicle(vehicle)
+                        vehicleToDelete = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = ErrorRed)
+                ) {
+                    Text("Supprimer", color = Color.White, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { vehicleToDelete = null }) {
+                    Text("Annuler", color = TextSecondary)
+                }
+            }
+        )
     }
 }

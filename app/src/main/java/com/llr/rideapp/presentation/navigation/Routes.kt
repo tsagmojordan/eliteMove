@@ -13,6 +13,7 @@ object Routes {
     const val ADMIN_ADD_VEHICLE = "admin_add_vehicle"
     const val SUPER_ADMIN_DASHBOARD = "super_admin_dashboard"
     const val SUPER_ADMIN_USERS = "super_admin_users"
+    const val SUPER_ADMIN_ROLES = "super_admin_roles"
     const val NOTIFICATIONS = "notifications"
     const val CALL = "call/{callId}/{callType}/{isIncoming}/{remoteUserId}"
 

@@ -23,11 +23,19 @@ interface RideRepository {
 }
 
 interface VehicleRepository {
+    suspend fun getAllVehicles(): Result<List<Vehicle>>
     suspend fun getAvailableVehicles(): Result<List<Vehicle>>
     suspend fun createVehicle(
         brand: String, model: String, year: Int,
-        licensePlate: String, vehiculeClass: String
+        licensePlate: String, vehiculeClass: String, price: Int,
+        photos: List<VehiclePhoto>?
     ): Result<Vehicle>
+    suspend fun updateVehicle(
+        id: String, brand: String, model: String, year: Int,
+        licensePlate: String, vehiculeClass: String, price: Int
+    ): Result<Vehicle>
+    suspend fun updateVehicleStatus(id: String, status: String): Result<Unit>
+    suspend fun deleteVehicle(id: String): Result<Unit>
 }
 
 interface CallRepository {
@@ -42,7 +50,7 @@ interface CallRepository {
 interface NotificationRepository {
     suspend fun getAllNotifications(): Result<List<AppNotification>>
     suspend fun getUnreadCount(): Result<Int>
-    suspend fun markAsRead(notificationId: String): Result<AppNotification>
+    suspend fun markAsRead(notificationId: String): Result<Unit>
     suspend fun markAllAsRead(): Result<Unit>
 }
 
@@ -50,4 +58,8 @@ interface UserRepository {
     suspend fun getAllUsers(search: String?): Result<List<User>>
     suspend fun updateUserStatus(id: String, enabled: Boolean): Result<User>
     suspend fun assignRoles(id: String, roleIds: List<String>): Result<User>
+    suspend fun deleteUser(id: String): Result<Unit>
+    suspend fun getRoles(search: String?): Result<List<Role>>
+    suspend fun createRole(name: String, description: String): Result<Role>
+    suspend fun deleteRole(roleId: String): Result<Unit>
 }

@@ -69,11 +69,13 @@ class AuthRepositoryImpl @Inject constructor(
         email: String, password: String
     ): Result<Unit> {
         return try {
-            val response = userApiService.register(
+            // Contrat C2 : inscription publique via POST /api/v1/auth/register
+            val response = authApiService.register(
                 RegisterRequest(firstname, lastname, username, email, password)
             )
-            if (response.isSuccessful) Result.success(Unit)
-            else Result.failure(Exception("Échec de l'inscription : ${response.code()}"))
+            val body = response.body()
+            if (response.isSuccessful && body?.success != false) Result.success(Unit)
+            else Result.failure(Exception(body?.message ?: "Échec de l'inscription : ${response.code()}"))
         } catch (e: Exception) {
             Result.failure(e)
         }
