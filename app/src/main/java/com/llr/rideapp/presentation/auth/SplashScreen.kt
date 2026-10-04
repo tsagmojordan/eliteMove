@@ -9,7 +9,10 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -87,18 +90,18 @@ fun SplashScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            // Placeholder for logo
-            Box(
+            // Logo de l'application (remplace l'emoji voiture 🚗)
+            Image(
+                painter = painterResource(id = R.drawable.logo_app),
+                contentDescription = "App Logo",
                 modifier = Modifier
                     .size(120.dp)
-                    .padding(16.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text("🚗", fontSize = 80.sp)
-            }
+                    .clip(CircleShape),
+                contentScale = ContentScale.Crop
+            )
             Spacer(modifier = Modifier.height(24.dp))
             Text(
-                text = "RideApp",
+                text = "Elite Move",
                 fontSize = 40.sp,
                 fontWeight = FontWeight.Bold,
                 color = AccentGold
