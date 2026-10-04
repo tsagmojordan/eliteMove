@@ -23,8 +23,10 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.accompanist.permissions.isGranted
+import com.llr.rideapp.data.local.TokenManager
 import com.llr.rideapp.data.remote.websocket.CallEvent
 import com.llr.rideapp.data.remote.websocket.CallRealtimeManager
+import com.llr.rideapp.domain.model.UserRole
 import com.llr.rideapp.domain.repository.CallRepository
 import com.llr.rideapp.presentation.common.*
 import com.llr.rideapp.webrtc.WebRtcManager
@@ -37,7 +39,8 @@ import javax.inject.Inject
 class CallViewModel @Inject constructor(
     private val callRepository: CallRepository,
     val webRtcManager: WebRtcManager,
-    val callRealtimeManager: CallRealtimeManager
+    val callRealtimeManager: CallRealtimeManager,
+    tokenManager: TokenManager
 ) : ViewModel() {
 
     var currentCallId by mutableStateOf<String?>(null)
@@ -46,6 +49,15 @@ class CallViewModel @Inject constructor(
     /** Positionnée quand le correspondant refuse/raccroche (fermeture auto de l'écran). */
     var remoteEnded by mutableStateOf(false)
         private set
+
+    /**
+     * Nom générique du correspondant : un client appelle/reçoit toujours le
+     * support (« Support »), un admin appelle/reçoit toujours un client
+     * (« Client »). L'UUID brut n'est jamais montré à l'utilisateur.
+     */
+    val remoteDisplayName: String =
+        if (UserRole.fromRoleNames(tokenManager.getRoles()) == UserRole.CLIENT) "Support"
+        else "Client"
 
     init {
         // Signalisation descendante : answer, candidats ICE et changements de statut
@@ -219,14 +231,18 @@ fun CallScreen(
         ) {
             Spacer(modifier = Modifier.height(64.dp))
 
-            // Avatar Placeholder
+            // Avatar Placeholder — initiale du nom générique (S = Support, C = Client)
             Box(
                 modifier = Modifier
                     .size(150.dp)
                     .background(SurfaceElevated, CircleShape),
                 contentAlignment = Alignment.Center
             ) {
-                Text(text = "R", fontSize = 64.sp, color = AccentGold)
+                Text(
+                    text = viewModel.remoteDisplayName.first().toString(),
+                    fontSize = 64.sp,
+                    color = AccentGold
+                )
             }
 
             Spacer(modifier = Modifier.height(32.dp))
@@ -236,7 +252,7 @@ fun CallScreen(
                 fontSize = 24.sp,
                 fontWeight = FontWeight.Bold
             )
-            Text(text = remoteUserId, color = TextPrimary, fontSize = 18.sp)
+            Text(text = viewModel.remoteDisplayName, color = TextPrimary, fontSize = 18.sp)
             Text(text = viewModel.callStatus, color = TextSecondary)
 
             Spacer(modifier = Modifier.weight(1f))

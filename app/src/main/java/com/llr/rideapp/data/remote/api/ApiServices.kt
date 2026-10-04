@@ -145,6 +145,12 @@ interface CallApiService {
         @Query("page") page: Int = 0,
         @Query("size") size: Int = 20
     ): Response<List<CallDto>>
+
+    // Contrat C10 : ApiResponse<String> — data = UUID de l'admin de support à
+    // appeler. Sélection (random, exclusion des admins en appel) côté backend ;
+    // le contrat ne changera pas quand le load balancer remplacera le random.
+    @GET("api/v1/calls/support/admin-id")
+    suspend fun getSupportAdminId(): Response<ApiResponse<String>>
 }
 
 interface NotificationApiService {

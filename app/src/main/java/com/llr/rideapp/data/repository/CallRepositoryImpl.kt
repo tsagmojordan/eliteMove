@@ -1,6 +1,8 @@
 package com.llr.rideapp.data.repository
 
+import com.google.gson.Gson
 import com.llr.rideapp.data.remote.api.CallApiService
+import com.llr.rideapp.data.remote.dto.ApiResponse
 import com.llr.rideapp.data.remote.dto.EndCallRequest
 import com.llr.rideapp.data.remote.dto.InitiateCallRequest
 import com.llr.rideapp.data.remote.dto.SignalingRequest
@@ -58,6 +60,26 @@ class CallRepositoryImpl @Inject constructor(
         // Réponse BRUTE List<CallResponse> (contrat C3) ; createdAt → startedAt
         val response = callApiService.getCallHistory(page, size)
         response.body()?.map { it.toModel() } ?: emptyList()
+    }
+
+    override suspend fun getSupportAdminId(): Result<String> = safeApiCall {
+        // Contrat C10 : ApiResponse<String> — data = UUID de l'admin à appeler.
+        // 503 (aucun admin / tous occupés) : le message métier est dans le body.
+        val response = callApiService.getSupportAdminId()
+        val body = response.body()
+        if (response.isSuccessful) {
+            val wrapper = body ?: throw Exception("Réponse support manquante")
+            if (wrapper.success != true) {
+                throw Exception(wrapper.message ?: "Aucun administrateur de support disponible")
+            }
+            wrapper.data ?: throw Exception("Identifiant de l'administrateur manquant")
+        } else {
+            val errorBody = response.errorBody()?.string()
+            val message = try {
+                Gson().fromJson(errorBody, ApiResponse::class.java).message
+            } catch (e: Exception) { null }
+            throw Exception(message ?: "Erreur support (HTTP ${response.code()})")
+        }
     }
 
     private fun com.llr.rideapp.data.remote.dto.CallDto.toModel() = Call(

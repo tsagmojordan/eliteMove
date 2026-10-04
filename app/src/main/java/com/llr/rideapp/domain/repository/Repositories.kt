@@ -46,6 +46,7 @@ interface CallRepository {
     suspend fun endCall(callId: String): Result<Call>
     suspend fun sendSignaling(callId: String, signal: String): Result<Unit>
     suspend fun getCallHistory(page: Int, size: Int): Result<List<Call>>
+    suspend fun getSupportAdminId(): Result<String>
 }
 
 interface NotificationRepository {

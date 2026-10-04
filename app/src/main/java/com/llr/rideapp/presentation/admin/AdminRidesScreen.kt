@@ -5,6 +5,8 @@ import com.llr.rideapp.utils.log
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Call
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -69,7 +71,8 @@ class AdminRidesViewModel @Inject constructor(
 @Composable
 fun AdminRidesScreen(
     viewModel: AdminRidesViewModel = hiltViewModel(),
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    onNavigateToCall: (callId: String, callType: String, isIncoming: Boolean, remoteUserId: String) -> Unit
 ) {
     GradientBackground {
         Column(modifier = Modifier.fillMaxSize()) {
@@ -118,12 +121,25 @@ fun AdminRidesScreen(
                             }
                             Spacer(modifier = Modifier.height(16.dp))
 
-                            // Action: Accepter — statut initial backend : REQUESTED
-                            if (ride.status == "REQUESTED") {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                // Action: Accepter — statut initial backend : REQUESTED
+                                if (ride.status == "REQUESTED") {
+                                    RideAppButton(
+                                        text = "ACCEPTER",
+                                        onClick = { viewModel.updateStatus(ride.id, "ACCEPTED") },
+                                        modifier = Modifier.weight(1f).height(40.dp)
+                                    )
+                                }
+                                // Support sortant : l'admin appelle le client du trajet.
+                                // Le callId réel est généré par CallScreen via POST /api/v1/calls.
                                 RideAppButton(
-                                    text = "ACCEPTER",
-                                    onClick = { viewModel.updateStatus(ride.id, "ACCEPTED") },
-                                    modifier = Modifier.fillMaxWidth().height(40.dp)
+                                    text = "Appeler",
+                                    icon = Icons.Filled.Call,
+                                    onClick = { onNavigateToCall("out", "AUDIO", false, ride.userId) },
+                                    modifier = Modifier.weight(1f).height(40.dp)
                                 )
                             }
                         }

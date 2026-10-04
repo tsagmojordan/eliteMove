@@ -43,6 +43,7 @@ import com.llr.rideapp.domain.model.VehiculeClass
 import com.llr.rideapp.domain.model.VehiculeDto
 import com.llr.rideapp.domain.model.VehiculeStatus
 import com.llr.rideapp.domain.repository.AuthRepository
+import com.llr.rideapp.domain.repository.CallRepository
 import com.llr.rideapp.domain.repository.NotificationRepository
 import com.llr.rideapp.domain.repository.RideRepository
 import com.llr.rideapp.utils.ApiConfig
@@ -82,10 +83,17 @@ class ClientDashboardViewModel @Inject constructor(
     private val notificationRepository: NotificationRepository,
     private val vehiculeApiService: VehiculeApiService,
     private val rideRepository: RideRepository,
+    private val callRepository: CallRepository,
     val callRealtimeManager: CallRealtimeManager
 ) : ViewModel() {
 
     var unreadCount by mutableStateOf(0)
+        private set
+
+    /** Résolution de l'admin de support (contrat C10) avant d'initier l'appel. */
+    var isResolvingSupport by mutableStateOf(false)
+        private set
+    var supportError by mutableStateOf<String?>(null)
         private set
 
     private val _vehicules = MutableStateFlow<List<VehiculeDto>>(emptyList())
@@ -176,6 +184,35 @@ class ClientDashboardViewModel @Inject constructor(
         log.debug("[ClientDashboardScreen] --resetOrderState")
         _rideOrderUiState.value = RideOrderUiState.Idle
     }
+
+    /**
+     * Bouton « Support » : demande au backend l'ID d'un admin disponible
+     * (contrat C10 — random côté serveur, admins en appel exclus), puis
+     * navigue vers l'écran d'appel sortant avec cet ID réel.
+     */
+    fun startSupportCall(onAdminResolved: (String) -> Unit) {
+        log.debug("[ClientDashboardScreen] --startSupportCall")
+        if (isResolvingSupport) return
+        isResolvingSupport = true
+        supportError = null
+        viewModelScope.launch {
+            callRepository.getSupportAdminId().fold(
+                onSuccess = { adminId ->
+                    isResolvingSupport = false
+                    onAdminResolved(adminId)
+                },
+                onFailure = { e ->
+                    isResolvingSupport = false
+                    supportError = e.message ?: "Support indisponible"
+                }
+            )
+        }
+    }
+
+    fun clearSupportError() {
+        log.debug("[ClientDashboardScreen] --clearSupportError")
+        supportError = null
+    }
 }
 
 // ─── Screen ──────────────────────────────────────────────────────────────────
@@ -237,9 +274,16 @@ fun ClientDashboardScreen(
             bottomBar = {
                 DashboardBottomBar(
                     unreadCount = unreadCount,
+                    isSupportLoading = viewModel.isResolvingSupport,
                     onNavigateToHistory = onNavigateToHistory,
                     onNavigateToNotifications = onNavigateToNotifications,
-                    onNavigateToCall = { onNavigateToCall("out", "AUDIO", false, "00000000-0000-0000-0000-000000000000") }
+                    onNavigateToCall = {
+                        // Contrat C10 : l'ID de l'admin est résolu par le backend
+                        // juste avant l'appel — plus d'UUID codé en dur.
+                        viewModel.startSupportCall { adminId ->
+                            onNavigateToCall("out", "AUDIO", false, adminId)
+                        }
+                    }
                 )
             }
         ) { paddingValues ->
@@ -406,6 +450,28 @@ fun ClientDashboardScreen(
             }
         )
     }
+
+    // ─── Erreur de résolution du support (contrat C10 : 503 / aucun admin) ──
+    viewModel.supportError?.let { message ->
+        AlertDialog(
+            onDismissRequest = { viewModel.clearSupportError() },
+            containerColor = MaterialTheme.colorScheme.surface,
+            title = {
+                Text(
+                    text = "Support indisponible",
+                    color = AccentGold,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 18.sp
+                )
+            },
+            text = { Text(message, color = TextSecondary) },
+            confirmButton = {
+                TextButton(onClick = { viewModel.clearSupportError() }) {
+                    Text("OK", color = AccentGold, fontWeight = FontWeight.Bold)
+                }
+            }
+        )
+    }
 }
 
 // ─── Bottom Bar ───────────────────────────────────────────────────────────────
@@ -413,6 +479,7 @@ fun ClientDashboardScreen(
 @Composable
 fun DashboardBottomBar(
     unreadCount: Int,
+    isSupportLoading: Boolean = false,
     onNavigateToHistory: () -> Unit,
     onNavigateToNotifications: () -> Unit,
     onNavigateToCall: () -> Unit
@@ -455,7 +522,17 @@ fun DashboardBottomBar(
             colors = NavigationBarItemDefaults.colors(unselectedIconColor = TextSecondary)
         )
         NavigationBarItem(
-            icon = { Icon(Icons.Filled.Phone, contentDescription = "Support") },
+            icon = {
+                if (isSupportLoading) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(24.dp),
+                        strokeWidth = 2.dp,
+                        color = AccentGold
+                    )
+                } else {
+                    Icon(Icons.Filled.Phone, contentDescription = "Support")
+                }
+            },
             label = { Text("Support") },
             selected = false,
             onClick = onNavigateToCall,
