@@ -2,9 +2,6 @@ package com.llr.rideapp.presentation.client
 
 import com.llr.rideapp.utils.log
 
-import android.Manifest
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -30,10 +27,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
-import com.google.android.gms.location.LocationServices
-import com.google.android.gms.maps.model.CameraPosition
-import com.google.android.gms.maps.model.LatLng
-import com.google.maps.android.compose.*
 import com.llr.rideapp.data.local.TokenManager
 import com.llr.rideapp.data.remote.api.VehiculeApiService
 import com.llr.rideapp.data.remote.websocket.CallEvent
@@ -48,6 +41,8 @@ import com.llr.rideapp.domain.repository.NotificationRepository
 import com.llr.rideapp.domain.repository.RideRepository
 import com.llr.rideapp.utils.ApiConfig
 import com.llr.rideapp.presentation.common.*
+import com.llr.rideapp.presentation.common.map.AppMapSection
+import com.llr.rideapp.presentation.common.map.MapPoint
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -56,7 +51,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 
 // ─── UI States ───────────────────────────────────────────────────────────────
@@ -232,7 +226,7 @@ fun ClientDashboardScreen(
     val selectedClass by viewModel.selectedClass.collectAsState()
     val rideOrderUiState by viewModel.rideOrderUiState.collectAsState()
 
-    var userLocation by remember { mutableStateOf<LatLng?>(null) }
+    var userLocation by remember { mutableStateOf<MapPoint?>(null) }
     var selectedVehicule by remember { mutableStateOf<VehiculeDto?>(null) }
     var orderPopupVehicule by remember { mutableStateOf<VehiculeDto?>(null) }
 
@@ -292,7 +286,7 @@ fun ClientDashboardScreen(
                     .fillMaxSize()
                     .padding(paddingValues)
             ) {
-                MapSection(
+                AppMapSection(
                     modifier = Modifier
                         .fillMaxWidth()
                         .weight(1.2f),
@@ -542,89 +536,8 @@ fun DashboardBottomBar(
 }
 
 // ─── Map Section ─────────────────────────────────────────────────────────────
-
-@Composable
-fun MapSection(
-    modifier: Modifier = Modifier,
-    vehicules: List<VehiculeDto>,
-    userLocation: LatLng?,
-    onUserLocationUpdated: (LatLng) -> Unit,
-    selectedVehicule: VehiculeDto?
-) {
-    val context = LocalContext.current
-    var hasLocationPermission by remember { mutableStateOf(false) }
-
-    val permissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission(),
-        onResult = { granted -> hasLocationPermission = granted }
-    )
-
-    LaunchedEffect(Unit) {
-        permissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
-    }
-
-    LaunchedEffect(hasLocationPermission) {
-        if (hasLocationPermission) {
-            try {
-                val fusedLocationClient = LocationServices.getFusedLocationProviderClient(context)
-                val location = fusedLocationClient.lastLocation.await()
-                if (location != null) {
-                    onUserLocationUpdated(LatLng(location.latitude, location.longitude))
-                }
-            } catch (e: SecurityException) {
-                // Permission refusée
-            } catch (e: Exception) {
-                // Ignorer l'erreur Play Services
-            }
-        }
-    }
-
-    val defaultLocation = LatLng(4.0511, 9.7679) // Douala par défaut
-    val cameraPositionState = rememberCameraPositionState {
-        position = CameraPosition.fromLatLngZoom(userLocation ?: defaultLocation, 12f)
-    }
-
-    LaunchedEffect(selectedVehicule) {
-        selectedVehicule?.let { v ->
-            val lat = v.latitude ?: defaultLocation.latitude
-            val lng = v.longitude ?: defaultLocation.longitude
-            cameraPositionState.position = CameraPosition.fromLatLngZoom(LatLng(lat, lng), 15f)
-        }
-    }
-
-    Box(modifier = modifier) {
-        GoogleMap(
-            modifier = Modifier.fillMaxSize(),
-            cameraPositionState = cameraPositionState,
-            properties = MapProperties(isMyLocationEnabled = hasLocationPermission)
-        ) {
-            vehicules.forEach { v ->
-                val lat = v.latitude ?: defaultLocation.latitude
-                val lng = v.longitude ?: defaultLocation.longitude
-                Marker(
-                    state = MarkerState(position = LatLng(lat, lng)),
-                    title = "${v.brand} ${v.model}",
-                    snippet = v.licensePlate
-                )
-            }
-        }
-
-        FloatingActionButton(
-            onClick = {
-                userLocation?.let {
-                    cameraPositionState.position = CameraPosition.fromLatLngZoom(it, 15f)
-                }
-            },
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(16.dp),
-            containerColor = Color.White,
-            contentColor = AccentGold
-        ) {
-            Icon(Icons.Filled.MyLocation, contentDescription = "Centrer")
-        }
-    }
-}
+// Rendu déplacé vers presentation/common/map/ (AppMapSection) avec double
+// fournisseur OpenStreetMap/Google Maps — voir MapConfig.USE_OPENSTREETMAP.
 
 // ─── Vehicle List Section ────────────────────────────────────────────────────
 
@@ -714,14 +627,20 @@ fun VehiculeCard(
                     .background(Color.White),
                 contentAlignment = Alignment.Center
             ) {
-                // Miniature Base64 renvoyée par les endpoints /with-thumbnails
-                val thumbnail = vehicule.thumbnail
-                if (!thumbnail.isNullOrBlank()) {
-                    val dataUri = if (thumbnail.startsWith("data:")) thumbnail
-                                  else "data:image/jpeg;base64,$thumbnail"
+                // Miniature Base64 renvoyée par les endpoints /with-thumbnails.
+                // Coil 2.x ne charge PAS les data URIs (« data:image/jpeg;base64,... »
+                // n'est supporté qu'à partir de Coil 3.1) : on décode le Base64
+                // en ByteArray, format que Coil 2.x sait décoder nativement.
+                val thumbnailBytes = vehicule.thumbnail?.let { b64 ->
+                    runCatching {
+                        val payload = b64.substringAfter("base64,", b64)
+                        android.util.Base64.decode(payload, android.util.Base64.DEFAULT)
+                    }.getOrNull()
+                }
+                if (thumbnailBytes != null) {
                     AsyncImage(
                         model = ImageRequest.Builder(LocalContext.current)
-                            .data(dataUri)
+                            .data(thumbnailBytes)
                             .crossfade(true)
                             .build(),
                         contentDescription = "Image véhicule",

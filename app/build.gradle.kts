@@ -96,6 +96,9 @@ dependencies {
     // Maps & Location
     implementation(libs.maps.compose)
     implementation(libs.play.services.location)
+    // OpenStreetMap (osmdroid) — alternative à Google Maps, aucune clé API requise.
+    // Basculer MapConfig.USE_OPENSTREETMAP pour choisir le fournisseur.
+    implementation(libs.osmdroid.android)
 
     // Coil
     implementation(libs.coil.compose)
