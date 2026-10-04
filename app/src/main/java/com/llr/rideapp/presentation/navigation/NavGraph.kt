@@ -11,6 +11,7 @@ import com.llr.rideapp.presentation.admin.AdminDashboardScreen
 import com.llr.rideapp.presentation.admin.AdminRidesScreen
 import com.llr.rideapp.presentation.admin.AdminVehiclesScreen
 import com.llr.rideapp.presentation.admin.AdminAddVehicleScreen
+import com.llr.rideapp.presentation.admin.AdminEditVehicleScreen
 import com.llr.rideapp.presentation.call.CallScreen
 import com.llr.rideapp.presentation.client.ClientDashboardScreen
 import com.llr.rideapp.presentation.client.ClientNewRideScreen
@@ -92,18 +93,33 @@ fun RideAppNavGraph(
         }
 
         composable(Routes.ADMIN_RIDES) {
-            AdminRidesScreen(onBack = { navController.popBackStack() })
+            AdminRidesScreen(
+                onBack = { navController.popBackStack() },
+                onNavigateToCall = { callId, callType, isIncoming, remoteUserId ->
+                    navController.navigate(Routes.callRoute(callId, callType, isIncoming, remoteUserId))
+                }
+            )
         }
 
         composable(Routes.ADMIN_VEHICLES) {
             AdminVehiclesScreen(
                 onBack = { navController.popBackStack() },
-                onNavigateToAddVehicle = { navController.navigate(Routes.ADMIN_ADD_VEHICLE) }
+                onNavigateToAddVehicle = { navController.navigate(Routes.ADMIN_ADD_VEHICLE) },
+                onNavigateToEditVehicle = { vehicleId ->
+                    navController.navigate(Routes.adminEditVehicleRoute(vehicleId))
+                }
             )
         }
 
         composable(Routes.ADMIN_ADD_VEHICLE) {
             AdminAddVehicleScreen(onBack = { navController.popBackStack() })
+        }
+
+        composable(
+            Routes.ADMIN_EDIT_VEHICLE,
+            arguments = listOf(navArgument("vehicleId") { type = NavType.StringType })
+        ) {
+            AdminEditVehicleScreen(onBack = { navController.popBackStack() })
         }
 
         // ─── Super Admin ──────────────────────────────────────────────────────

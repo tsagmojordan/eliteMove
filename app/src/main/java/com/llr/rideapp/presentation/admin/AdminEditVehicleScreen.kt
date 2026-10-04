@@ -2,19 +2,16 @@ package com.llr.rideapp.presentation.admin
 
 import com.llr.rideapp.utils.log
 
-import android.net.Uri
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.PickVisualMediaRequest
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AddAPhoto
 import androidx.compose.material.icons.filled.AttachMoney
 import androidx.compose.material.icons.filled.DirectionsCar
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Numbers
+import androidx.compose.material.icons.filled.Save
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Text
@@ -27,28 +24,23 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.llr.rideapp.domain.model.VehiculeClass
-import com.llr.rideapp.domain.model.VehiclePhoto
 import com.llr.rideapp.domain.repository.VehicleRepository
 import com.llr.rideapp.presentation.common.*
 import dagger.hilt.android.lifecycle.HiltViewModel
-import dagger.hilt.android.qualifiers.ApplicationContext
-import android.content.Context
-import android.graphics.Bitmap
-import android.graphics.BitmapFactory
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import java.io.ByteArrayOutputStream
 import javax.inject.Inject
 
 @HiltViewModel
-class AdminAddVehicleViewModel @Inject constructor(
-    @ApplicationContext private val appContext: Context,
+class AdminEditVehicleViewModel @Inject constructor(
+    savedStateHandle: SavedStateHandle,
     private val vehicleRepository: VehicleRepository
 ) : ViewModel() {
+
+    private val vehicleId: String = savedStateHandle.get<String>("vehicleId") ?: ""
 
     var brand by mutableStateOf("")
     var model by mutableStateOf("")
@@ -58,131 +50,101 @@ class AdminAddVehicleViewModel @Inject constructor(
     var vehiculeClass by mutableStateOf(VehiculeClass.ECO)
     var price by mutableStateOf("")
 
-    var photoUris by mutableStateOf<List<Uri>>(emptyList())
+    var isLoading by mutableStateOf(true)
         private set
-
-    var isLoading by mutableStateOf(false)
+    var isSaving by mutableStateOf(false)
         private set
     var error by mutableStateOf<String?>(null)
         private set
 
-    private val _addSuccessEvent = mutableStateOf(false)
-    val addSuccessEvent: State<Boolean> = _addSuccessEvent
+    private val _editSuccessEvent = mutableStateOf(false)
+    val editSuccessEvent: State<Boolean> = _editSuccessEvent
 
-    fun onPhotosPicked(uris: List<Uri>) {
-        log.debug("[AdminAddVehicleScreen] --onPhotosPicked (${uris.size})")
-        photoUris = uris.take(MAX_PHOTOS)
+    init {
+        log.debug("[AdminEditVehicleScreen] --init vehicleId=$vehicleId")
+        loadVehicle()
     }
 
-    fun clearPhotos() {
-        photoUris = emptyList()
+    /** Pré-remplit le formulaire depuis GET /api/v1/vehicules/{id}. */
+    fun loadVehicle() {
+        if (vehicleId.isBlank()) {
+            error = "Identifiant du véhicule manquant"
+            isLoading = false
+            return
+        }
+        viewModelScope.launch {
+            vehicleRepository.getVehicleById(vehicleId).fold(
+                onSuccess = { vehicle ->
+                    brand = vehicle.brand
+                    model = vehicle.model
+                    year = vehicle.year.toString()
+                    licensePlate = vehicle.licensePlate
+                    vehiculeClass = runCatching { VehiculeClass.valueOf(vehicle.vehiculeClass) }
+                        .getOrDefault(VehiculeClass.ECO)
+                    price = vehicle.price?.toInt()?.toString() ?: ""
+                    isLoading = false
+                },
+                onFailure = { e ->
+                    error = e.message ?: "Erreur chargement du véhicule"
+                    isLoading = false
+                }
+            )
+        }
     }
 
-    fun createVehicle() {
-        log.debug("[AdminAddVehicleScreen] --createVehicle")
+    /** PUT /api/v1/vehicules/{id} — champs uniquement, les photos ne sont pas modifiables ici. */
+    fun saveVehicle() {
+        log.debug("[AdminEditVehicleScreen] --saveVehicle")
         val y = year.toIntOrNull()
         val p = price.toIntOrNull()
         if (brand.isBlank() || model.isBlank() || y == null || licensePlate.isBlank() || p == null) {
             error = "Veuillez remplir tous les champs correctement"
             return
         }
-        if (photoUris.size != MAX_PHOTOS) {
-            error = "Veuillez sélectionner exactement $MAX_PHOTOS photos du véhicule"
-            return
-        }
 
-        isLoading = true
+        isSaving = true
         error = null
         viewModelScope.launch {
-            // Lecture des URI → octets compressés (hors thread principal)
-            val photos = withContext(Dispatchers.IO) {
-                photoUris.mapIndexedNotNull { index, uri -> readPhoto(uri, index) }
-            }
-            val result = vehicleRepository.createVehicle(
+            val result = vehicleRepository.updateVehicle(
+                id = vehicleId,
                 brand = brand,
                 model = model,
                 year = y,
                 licensePlate = licensePlate,
                 vehiculeClass = vehiculeClass.name,
-                price = p,
-                photos = photos
+                price = p
             )
-            isLoading = false
+            isSaving = false
             result.fold(
-                onSuccess = { _addSuccessEvent.value = true },
-                onFailure = { error = it.message ?: "Erreur d'ajout du véhicule" }
+                onSuccess = { _editSuccessEvent.value = true },
+                onFailure = { error = it.message ?: "Erreur de mise à jour du véhicule" }
             )
         }
-    }
-
-    private fun readPhoto(uri: Uri, index: Int): VehiclePhoto? = try {
-        val rawBytes = appContext.contentResolver.openInputStream(uri)?.use { it.readBytes() }
-            ?: return null
-        val jpegBytes = compressToJpeg(rawBytes)
-        // Le backend déduit le format depuis l'extension du nom de fichier (contrat C6) :
-        // on force un nom avec extension .jpg, les URI du photo picker n'en ont souvent pas.
-        val name = "photo_${System.currentTimeMillis()}_$index.jpg"
-        VehiclePhoto(name, jpegBytes, "image/jpeg")
-    } catch (e: Exception) {
-        log.debug("[AdminAddVehicleScreen] --readPhoto échec: ${e.message}")
-        null
-    }
-
-    /**
-     * Re-encode la photo en JPEG compressé. Les photos d'appareil dépassent le défaut
-     * Spring multipart (1 Mo) et la limite métier backend (2 Mo) — on vise < 900 Ko.
-     */
-    private fun compressToJpeg(bytes: ByteArray): ByteArray {
-        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-        BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
-        var sampleSize = 1
-        while (bounds.outWidth / sampleSize > MAX_DIMENSION || bounds.outHeight / sampleSize > MAX_DIMENSION) {
-            sampleSize *= 2
-        }
-        val bitmap = BitmapFactory.decodeByteArray(
-            bytes, 0, bytes.size,
-            BitmapFactory.Options().apply { inSampleSize = sampleSize }
-        ) ?: return bytes
-
-        val output = ByteArrayOutputStream()
-        var quality = 85
-        bitmap.compress(Bitmap.CompressFormat.JPEG, quality, output)
-        while (output.size() > MAX_UPLOAD_BYTES && quality > 20) {
-            quality -= 15
-            output.reset()
-            bitmap.compress(Bitmap.CompressFormat.JPEG, quality, output)
-        }
-        bitmap.recycle()
-        return output.toByteArray()
-    }
-
-    companion object {
-        const val MAX_PHOTOS = 3
-        private const val MAX_UPLOAD_BYTES = 900 * 1024
-        private const val MAX_DIMENSION = 1600
     }
 }
 
 @Composable
-fun AdminAddVehicleScreen(
-    viewModel: AdminAddVehicleViewModel = hiltViewModel(),
+fun AdminEditVehicleScreen(
+    viewModel: AdminEditVehicleViewModel = hiltViewModel(),
     onBack: () -> Unit
 ) {
-    if (viewModel.addSuccessEvent.value) {
+    if (viewModel.editSuccessEvent.value) {
         LaunchedEffect(Unit) { onBack() }
     }
-
-    // Sélecteur de photos (max 3) — part "photos" du multipart (contrat C6)
-    val photoPicker = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.PickMultipleVisualMedia(AdminAddVehicleViewModel.MAX_PHOTOS)
-    ) { uris -> viewModel.onPhotosPicked(uris) }
 
     GradientBackground {
         Column(modifier = Modifier.fillMaxSize()) {
             RideAppTopBar(
-                title = "Nouveau Véhicule",
+                title = "Modifier le Véhicule",
                 onBack = onBack
             )
+
+            if (viewModel.isLoading) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(color = AccentGold)
+                }
+                return@Column
+            }
 
             Column(
                 modifier = Modifier
@@ -192,7 +154,7 @@ fun AdminAddVehicleScreen(
                 verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically)
             ) {
                 Text(
-                    text = "Ajout à la flotte",
+                    text = "Modification de la flotte",
                     fontSize = 24.sp,
                     fontWeight = FontWeight.Bold,
                     color = AccentGold
@@ -254,33 +216,19 @@ fun AdminAddVehicleScreen(
                     }
                 }
 
-                // Sélecteur de photos
-                Column(modifier = Modifier.fillMaxWidth()) {
-                    RideAppButton(
-                        text = if (viewModel.photoUris.isEmpty()) "Ajouter des photos (3 requises)"
-                               else "${viewModel.photoUris.size}/3 photo(s) sélectionnée(s)",
-                        onClick = {
-                            photoPicker.launch(
-                                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
-                            )
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                        icon = Icons.Filled.AddAPhoto,
-                        enabled = viewModel.photoUris.size < AdminAddVehicleViewModel.MAX_PHOTOS
-                    )
-                    if (viewModel.photoUris.isNotEmpty()) {
-                        Spacer(modifier = Modifier.height(4.dp))
-                        androidx.compose.material3.TextButton(onClick = { viewModel.clearPhotos() }) {
-                            Text("Retirer les photos", color = TextSecondary)
-                        }
-                    }
-                }
+                // Le PUT ne met à jour que les champs — les photos se gèrent à la création
+                Text(
+                    "Les photos du véhicule ne sont pas modifiables ici.",
+                    color = TextSecondary,
+                    fontSize = 12.sp
+                )
 
                 RideAppButton(
-                    text = "Enregistrer",
-                    onClick = { viewModel.createVehicle() },
+                    text = "Enregistrer les modifications",
+                    onClick = { viewModel.saveVehicle() },
                     modifier = Modifier.fillMaxWidth(),
-                    isLoading = viewModel.isLoading
+                    icon = Icons.Filled.Save,
+                    isLoading = viewModel.isSaving
                 )
             }
         }

@@ -9,6 +9,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Build
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -42,7 +43,6 @@ class AdminVehiclesViewModel @Inject constructor(
 
     init {
         log.debug("[AdminVehiclesScreen] --init")
-        loadVehicles()
     }
 
     fun loadVehicles() {
@@ -88,9 +88,14 @@ class AdminVehiclesViewModel @Inject constructor(
 fun AdminVehiclesScreen(
     viewModel: AdminVehiclesViewModel = hiltViewModel(),
     onBack: () -> Unit,
-    onNavigateToAddVehicle: () -> Unit
+    onNavigateToAddVehicle: () -> Unit,
+    onNavigateToEditVehicle: (String) -> Unit
 ) {
     var vehicleToDelete by remember { mutableStateOf<Vehicle?>(null) }
+
+    // Recharge la flotte à chaque affichage de l'écran — le ViewModel survit à la
+    // navigation, la liste resterait sinon obsolète après un ajout/modification.
+    LaunchedEffect(Unit) { viewModel.loadVehicles() }
 
     GradientBackground {
         Column(modifier = Modifier.fillMaxSize()) {
@@ -163,6 +168,16 @@ fun AdminVehiclesScreen(
                                     modifier = Modifier.weight(1f).height(44.dp),
                                     icon = Icons.Filled.Build
                                 )
+                                IconButton(
+                                    onClick = { onNavigateToEditVehicle(vehicle.id) },
+                                    modifier = Modifier.size(44.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Filled.Edit,
+                                        contentDescription = "Modifier",
+                                        tint = AccentGold
+                                    )
+                                }
                                 IconButton(
                                     onClick = { vehicleToDelete = vehicle },
                                     modifier = Modifier.size(44.dp)

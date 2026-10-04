@@ -28,6 +28,12 @@ class VehicleRepositoryImpl @Inject constructor(
         response.body()?.map { it.toModel() } ?: emptyList()
     }
 
+    override suspend fun getVehicleById(id: String): Result<Vehicle> = safeApiCall {
+        val response = vehicleApiService.getVehicleById(id)
+        response.body()?.toModel()
+            ?: throw Exception("Erreur lors du chargement du véhicule (HTTP ${response.code()})")
+    }
+
     override suspend fun createVehicle(
         brand: String, model: String, year: Int,
         licensePlate: String, vehiculeClass: String, price: Int,

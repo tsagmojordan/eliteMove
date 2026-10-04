@@ -25,6 +25,7 @@ interface RideRepository {
 interface VehicleRepository {
     suspend fun getAllVehicles(): Result<List<Vehicle>>
     suspend fun getAvailableVehicles(): Result<List<Vehicle>>
+    suspend fun getVehicleById(id: String): Result<Vehicle>
     suspend fun createVehicle(
         brand: String, model: String, year: Int,
         licensePlate: String, vehiculeClass: String, price: Int,

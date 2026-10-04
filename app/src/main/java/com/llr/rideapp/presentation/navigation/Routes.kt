@@ -11,6 +11,7 @@ object Routes {
     const val ADMIN_RIDES = "admin_rides"
     const val ADMIN_VEHICLES = "admin_vehicles"
     const val ADMIN_ADD_VEHICLE = "admin_add_vehicle"
+    const val ADMIN_EDIT_VEHICLE = "admin_edit_vehicle/{vehicleId}"
     const val SUPER_ADMIN_DASHBOARD = "super_admin_dashboard"
     const val SUPER_ADMIN_USERS = "super_admin_users"
     const val SUPER_ADMIN_ROLES = "super_admin_roles"
@@ -19,4 +20,6 @@ object Routes {
 
     fun callRoute(callId: String, callType: String, isIncoming: Boolean, remoteUserId: String) =
         "call/$callId/$callType/$isIncoming/$remoteUserId"
+
+    fun adminEditVehicleRoute(vehicleId: String) = "admin_edit_vehicle/$vehicleId"
 }

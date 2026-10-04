@@ -92,6 +92,9 @@ interface VehicleApiService {
     @GET("api/v1/vehicules")
     suspend fun getAllVehicles(): Response<List<VehicleDto>>
 
+    @GET("api/v1/vehicules/{id}")
+    suspend fun getVehicleById(@Path("id") id: String): Response<VehicleDto>
+
     // Contrat C6 : création en multipart — part "request" (JSON) + part "photos" (fichiers)
     @Multipart
     @POST("api/v1/vehicules")
