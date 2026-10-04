@@ -4,17 +4,20 @@ import com.llr.rideapp.utils.log
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.res.painterResource
@@ -41,6 +44,7 @@ class RegisterViewModel @Inject constructor(
     var lastname by mutableStateOf("")
     var username by mutableStateOf("")
     var email by mutableStateOf("")
+    var phone by mutableStateOf("")
     var password by mutableStateOf("")
 
     var isLoading by mutableStateOf(false)
@@ -53,15 +57,22 @@ class RegisterViewModel @Inject constructor(
 
     fun register() {
         log.debug("[RegisterScreen] --register")
-        if (firstname.isBlank() || lastname.isBlank() || username.isBlank() || email.isBlank() || password.isBlank()) {
+        if (firstname.isBlank() || lastname.isBlank() || username.isBlank() ||
+            email.isBlank() || phone.isBlank() || password.isBlank()
+        ) {
             error = "Veuillez remplir tous les champs"
+            return
+        }
+        // Contrat C11 : « + » optionnel puis 8 à 15 chiffres (même règle que le backend)
+        if (!Regex("^\\+?[0-9]{8,15}$").matches(phone)) {
+            error = "Numéro de téléphone invalide (ex : 690123456 ou +237690123456)"
             return
         }
 
         isLoading = true
         error = null
         viewModelScope.launch {
-            val result = authRepository.register(firstname, lastname, username, email, password)
+            val result = authRepository.register(firstname, lastname, username, email, phone, password)
             isLoading = false
             result.fold(
                 onSuccess = {
@@ -151,6 +162,14 @@ fun RegisterScreen(
                 onValueChange = { viewModel.email = it },
                 label = "Email",
                 leadingIcon = Icons.Filled.Email
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            RideAppTextField(
+                value = viewModel.phone,
+                onValueChange = { viewModel.phone = it },
+                label = "Téléphone (ex : 690123456)",
+                leadingIcon = Icons.Filled.Phone,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone)
             )
             Spacer(modifier = Modifier.height(16.dp))
             RideAppTextField(

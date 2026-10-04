@@ -18,6 +18,8 @@
 > - **F4.1** ✅ Flotte admin : suppression + bascule de statut AVAILABLE↔MAINTENANCE
 > - **F4.2** ✅ SuperAdmin : écran Rôles (lister/créer/supprimer), assignation de rôles par utilisateur, suppression d'utilisateur
 > - **F4.3** ⚪ Non implémenté (backlog) : écran « mot de passe oublié », badge appels manqués, suppression d'un rôle individuel d'un utilisateur
+> - **F5** ✅ Appels support fonctionnels (2026-10-04, backend **B7**) : bouton « Support » client → résout l'admin via `GET /api/v1/calls/support/admin-id` (fini l'UUID codé en dur) + dialogue d'erreur si 503 ; bouton « Appeler » dans la liste des trajets admin (appel sortant vers le `userId` du trajet). Écran d'appel : nom générique du correspondant (« Support » pour un client, « Client » pour un admin) — l'UUID brut n'est plus affiché. Appels audio uniquement — le code VIDEO restant est mort et assumé comme tel.
+> - **F6** ✅ Téléphone à l'inscription (2026-10-04, backend **B8**) : champ « Téléphone » obligatoire dans le formulaire (clavier téléphonique, icône Phone, validation locale `^\+?[0-9]{8,15}$` identique au backend) ; `RegisterRequest` gagne `phone` → `POST /api/v1/auth/register` (contrat **C11**).
 >
 > Fichiers créés : `utils/ApiConfig.kt`, `data/remote/websocket/StompClient.kt`, `data/remote/websocket/CallRealtimeManager.kt`, `presentation/superadmin/SuperAdminRolesScreen.kt`.
 
@@ -40,6 +42,8 @@
 | C7 | Appels temps réel | WS `/ws-notifications` (STOMP, JWT au CONNECT) → destination `/user/queue/calls` avec `{type: "INCOMING_CALL"\|"SIGNAL"\|"CALL_STATUS", ...}` | Backend B2 + Frontend F3 |
 | C8 | Prix ride | `RideDto` gagne `price` (Double, non-nul après ACCEPTED) | Backend B3 + Frontend F1.9 |
 | C9 | Adresse | `http://147.79.118.51:7820/` confirmée — ne pas modifier | — |
+| C10 | Admin de support à appeler | `GET /api/v1/calls/support/admin-id` → `ApiResponse<String>` (`data` = UUID de l'admin, tirage aléatoire côté backend, admins en appel exclus) ; aucun admin → 503 `ApiResponse<Void>` avec message | Backend B7 + Frontend F5 |
+| C11 | Téléphone à l'inscription | `RegisterRequest` gagne `phone` (optionnel à l'API — `^\+?[0-9]{8,15}$`, max 20 ; **requis** par le formulaire mobile) ; `UserResponse` gagne `phone` (nullable pour les anciens comptes) | Backend B8 + Frontend F6 |
 
 ---
 
@@ -170,6 +174,8 @@
 - [ ] F2 photos visibles (cards + détail)
 - [ ] F3 appel audio de bout en bout entre 2 terminaux (après B2)
 - [ ] F4 selon priorité métier
+- [ ] F5 appels support de bout en bout (après B7) : résolution admin C10 + nom générique
+- [ ] F6 inscription avec téléphone (après B8) : champ requis, format `^\+?[0-9]{8,15}$`
 
 ---
 

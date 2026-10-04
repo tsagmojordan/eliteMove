@@ -66,12 +66,12 @@ class AuthRepositoryImpl @Inject constructor(
 
     override suspend fun register(
         firstname: String, lastname: String, username: String,
-        email: String, password: String
+        email: String, phone: String, password: String
     ): Result<Unit> {
         return try {
             // Contrat C2 : inscription publique via POST /api/v1/auth/register
             val response = authApiService.register(
-                RegisterRequest(firstname, lastname, username, email, password)
+                RegisterRequest(firstname, lastname, username, email, phone, password)
             )
             val body = response.body()
             if (response.isSuccessful && body?.success != false) Result.success(Unit)

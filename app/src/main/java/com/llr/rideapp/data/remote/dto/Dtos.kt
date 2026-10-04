@@ -36,6 +36,9 @@ data class RegisterRequest(
     @SerializedName("lastname") val lastname: String,
     @SerializedName("username") val username: String,
     @SerializedName("email") val email: String,
+    // Contrat C11 : optionnel à l'API, mais requis par le formulaire mobile.
+    // Format : « + » optionnel puis 8 à 15 chiffres (validation backend @Pattern).
+    @SerializedName("phone") val phone: String,
     @SerializedName("password") val password: String
 )
 
