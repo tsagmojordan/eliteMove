@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.dp
 import com.google.android.gms.location.LocationServices
 import com.llr.rideapp.domain.model.VehiculeDto
 import com.llr.rideapp.presentation.common.AccentGold
+import com.llr.rideapp.presentation.common.PrimaryDark
 import kotlinx.coroutines.tasks.await
 
 /**
@@ -124,8 +125,8 @@ fun AppMapSection(
             modifier = Modifier
                 .align(Alignment.BottomEnd)
                 .padding(16.dp),
-            containerColor = Color.White,
-            contentColor = AccentGold
+            containerColor = AccentGold,
+            contentColor = PrimaryDark
         ) {
             Icon(Icons.Filled.MyLocation, contentDescription = "Centrer")
         }

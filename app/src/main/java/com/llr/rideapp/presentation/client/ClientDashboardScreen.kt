@@ -11,6 +11,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -425,10 +426,13 @@ fun ClientDashboardScreen(
                     Button(
                         onClick = { viewModel.orderRide(vehicule.id, pickup, dropoff) },
                         enabled = pickup.isNotBlank() && dropoff.isNotBlank() && rideOrderUiState !is RideOrderUiState.Loading,
-                        colors = ButtonDefaults.buttonColors(containerColor = AccentGold),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = AccentGold,
+                            contentColor = PrimaryDark
+                        ),
                         shape = RoundedCornerShape(8.dp)
                     ) {
-                        Text("Confirmer", color = Color.White, fontWeight = FontWeight.Bold)
+                        Text("Confirmer", fontWeight = FontWeight.Bold)
                     }
                 }
             },
@@ -469,6 +473,8 @@ fun ClientDashboardScreen(
 }
 
 // ─── Bottom Bar ───────────────────────────────────────────────────────────────
+// Icônes filaires (outline) modernes, fond bleu marine, pilule dorée arrondie
+// englobant l'icône de l'onglet actif ("Accueil").
 
 @Composable
 fun DashboardBottomBar(
@@ -479,22 +485,24 @@ fun DashboardBottomBar(
     onNavigateToCall: () -> Unit
 ) {
     NavigationBar(
-        containerColor = Color.White,
+        containerColor = PrimaryDark,
         contentColor = AccentGold
     ) {
         NavigationBarItem(
-            icon = { Icon(Icons.Filled.Home, contentDescription = "Accueil") },
+            icon = { Icon(Icons.Outlined.Home, contentDescription = "Accueil") },
             label = { Text("Accueil") },
             selected = true,
             onClick = { },
             colors = NavigationBarItemDefaults.colors(
-                selectedIconColor = AccentGold,
+                selectedIconColor = PrimaryDark,
+                selectedTextColor = AccentGold,
                 unselectedIconColor = TextSecondary,
-                indicatorColor = AccentGold.copy(alpha = 0.1f)
+                unselectedTextColor = TextSecondary,
+                indicatorColor = AccentGold
             )
         )
         NavigationBarItem(
-            icon = { Icon(Icons.Filled.History, contentDescription = "Trajets") },
+            icon = { Icon(Icons.Outlined.History, contentDescription = "Trajets") },
             label = { Text("Trajets") },
             selected = false,
             onClick = onNavigateToHistory,
@@ -504,10 +512,10 @@ fun DashboardBottomBar(
             icon = {
                 if (unreadCount > 0) {
                     BadgedBox(badge = { Badge { Text(unreadCount.toString()) } }) {
-                        Icon(Icons.Filled.Notifications, contentDescription = "Notifs")
+                        Icon(Icons.Outlined.Notifications, contentDescription = "Notifs")
                     }
                 } else {
-                    Icon(Icons.Filled.Notifications, contentDescription = "Notifs")
+                    Icon(Icons.Outlined.Notifications, contentDescription = "Notifs")
                 }
             },
             label = { Text("Notifs") },
@@ -524,7 +532,7 @@ fun DashboardBottomBar(
                         color = AccentGold
                     )
                 } else {
-                    Icon(Icons.Filled.Phone, contentDescription = "Support")
+                    Icon(Icons.Outlined.SupportAgent, contentDescription = "Support")
                 }
             },
             label = { Text("Support") },
@@ -550,31 +558,25 @@ fun VehiculeListSection(
     onVehiculeTap: (VehiculeDto) -> Unit,
     onCommandVehicule: (VehiculeDto) -> Unit
 ) {
-    Column(modifier = modifier.background(Color(0xFFF5F5F5))) {
+    Column(modifier = modifier.background(PrimaryDark)) {
         LazyRow(
             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             item {
-                FilterChip(
+                RideAppFilterChip(
                     selected = selectedClass == null,
-                    onClick = { onClassSelected(null) },
-                    label = { Text("Tous") },
-                    colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = AccentGold,
-                        selectedLabelColor = Color.White
-                    )
+                    icon = Icons.Outlined.Search,
+                    label = "Toutes",
+                    onClick = { onClassSelected(null) }
                 )
             }
             items(VehiculeClass.values()) { cls ->
-                FilterChip(
+                RideAppFilterChip(
                     selected = selectedClass == cls,
-                    onClick = { onClassSelected(cls) },
-                    label = { Text(cls.name) },
-                    colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = AccentGold,
-                        selectedLabelColor = Color.White
-                    )
+                    icon = cls.categoryIcon(),
+                    label = cls.name,
+                    onClick = { onClassSelected(cls) }
                 )
             }
         }
@@ -602,6 +604,39 @@ fun VehiculeListSection(
 
 // ─── Vehicle Card ────────────────────────────────────────────────────────────
 
+/** Format premium du prix : "15,000 FCFA" (séparateur de milliers). */
+private fun formatFcfa(price: Double?): String? = price?.let {
+    String.format(java.util.Locale.US, "%,.0f", it) + " FCFA"
+}
+
+/** Badge de disponibilité moderne : pastille verte "En ligne". */
+@Composable
+private fun AvailabilityBadge(available: Boolean) {
+    Surface(
+        color = if (available) Color(0xFF22C55E) else Color(0xFF6B7280),
+        shape = RoundedCornerShape(50),
+        shadowElevation = 2.dp
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(5.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(6.dp)
+                    .background(Color.White, CircleShape)
+            )
+            Text(
+                text = if (available) "En ligne" else "Indisponible",
+                color = Color.White,
+                fontSize = 10.sp,
+                fontWeight = FontWeight.SemiBold
+            )
+        }
+    }
+}
+
 @Composable
 fun VehiculeCard(
     vehicule: VehiculeDto,
@@ -610,21 +645,21 @@ fun VehiculeCard(
 ) {
     Card(
         modifier = Modifier
-            .width(200.dp)
-            .height(280.dp)
+            .width(220.dp)
+            .height(300.dp)
             .clickable(onClick = onTap),
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = SurfaceCard),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
     ) {
         Column(modifier = Modifier.padding(12.dp)) {
             // Image / placeholder
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(100.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(Color.White),
+                    .height(110.dp)
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(SurfaceElevated),
                 contentAlignment = Alignment.Center
             ) {
                 // Miniature Base64 renvoyée par les endpoints /with-thumbnails.
@@ -656,59 +691,51 @@ fun VehiculeCard(
                     )
                 }
                 // Badge de disponibilité basé sur le statut réel du véhicule
-                val isAvailable = vehicule.status == VehiculeStatus.AVAILABLE
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .padding(4.dp)
-                        .background(
-                            if (isAvailable) Color(0xFF4CAF50) else Color(0xFF9E9E9E),
-                            CircleShape
-                        )
-                        .padding(horizontal = 6.dp, vertical = 2.dp)
-                ) {
-                    Text(
-                        text = if (isAvailable) "DISPO" else "OCCUPÉ",
-                        color = Color.White,
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
+                AvailabilityBadge(
+                    available = vehicule.status == VehiculeStatus.AVAILABLE
+                )
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(10.dp))
 
+            // Nom du véhicule — gras, bien visible
             Text(
                 text = "${vehicule.brand} ${vehicule.model}",
                 fontWeight = FontWeight.Bold,
                 fontSize = 16.sp,
                 maxLines = 1,
-                color = AccentGold
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                color = TextPrimary
             )
+            // Détails — police plus petite et grise
             Text(
-                text = "${vehicule.year} • ${vehicule.licensePlate}",
-                fontSize = 12.sp,
+                text = "Modèle ${vehicule.year} • ${vehicule.licensePlate}",
+                fontSize = 11.sp,
                 color = TextSecondary
             )
-            if (vehicule.price != null) {
-                Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(6.dp))
+            formatFcfa(vehicule.price)?.let {
                 Text(
-                    text = "${vehicule.price} FCFA",
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.SemiBold,
+                    text = it,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
                     color = AccentGold
                 )
             }
 
             Spacer(modifier = Modifier.weight(1f))
 
+            // Bouton pleine largeur doré, texte contrasté
             Button(
                 onClick = onCommandClick,
                 modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(containerColor = AccentGold),
-                shape = RoundedCornerShape(8.dp)
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = AccentGold,
+                    contentColor = PrimaryDark
+                ),
+                shape = RoundedCornerShape(10.dp)
             ) {
-                Text("Commander", color = Color.White, fontWeight = FontWeight.Bold)
+                Text("Commander", fontWeight = FontWeight.Bold)
             }
         }
     }
@@ -767,7 +794,7 @@ fun VehiculeDetailDialog(
                                 .weight(1f)
                                 .height(90.dp)
                                 .clip(RoundedCornerShape(8.dp))
-                                .background(Color.White),
+                                .background(SurfaceElevated),
                             contentAlignment = Alignment.Center
                         ) {
                             AsyncImage(
@@ -801,10 +828,13 @@ fun VehiculeDetailDialog(
         confirmButton = {
             Button(
                 onClick = onCommand,
-                colors = ButtonDefaults.buttonColors(containerColor = AccentGold),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = AccentGold,
+                    contentColor = PrimaryDark
+                ),
                 shape = RoundedCornerShape(8.dp)
             ) {
-                Text("Commander", color = Color.White, fontWeight = FontWeight.Bold)
+                Text("Commander", fontWeight = FontWeight.Bold)
             }
         },
         dismissButton = {

@@ -11,13 +11,13 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 
-// ─── Couleurs RideApp ─────────────────────────────────────────────────────────
-val PrimaryBlack = Color(0xFF0D0D0D)
-val PrimaryDark = Color(0xFF1A1A2E)
-val AccentGold = Color(0xFFFFD700)
-val AccentGoldLight = Color(0xFFFFE566)
-val SurfaceCard = Color(0xFF16213E)
-val SurfaceElevated = Color(0xFF0F3460)
+// ─── Couleurs RideApp (palette premium : bleu marine profond + doré) ──────────
+val PrimaryBlack = Color(0xFF060B18)
+val PrimaryDark = Color(0xFF0A1228)
+val AccentGold = Color(0xFFFACC15)
+val AccentGoldLight = Color(0xFFFDE047)
+val SurfaceCard = Color(0xFF0F1B36)
+val SurfaceElevated = Color(0xFF1A2B52)
 val TextPrimary = Color(0xFFF5F5F5)
 val TextSecondary = Color(0xFFB0B0C3)
 val SuccessGreen = Color(0xFF4CAF50)

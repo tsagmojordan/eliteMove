@@ -10,14 +10,32 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import com.llr.rideapp.R
 import com.llr.rideapp.domain.model.VehiculeDto
+import org.osmdroid.tileprovider.tilesource.OnlineTileSourceBase
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
 import org.osmdroid.util.GeoPoint
+import org.osmdroid.util.MapTileIndex
 import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.Marker
 import org.osmdroid.views.overlay.mylocation.MyLocationNewOverlay
+
+/**
+ * Style de tuiles sombres "Night" (CartoDB Dark) — rendu premium luxueux
+ * équivalent au mode night de Google Maps, sans clé API.
+ */
+private fun darkTileSource(): OnlineTileSourceBase = object : OnlineTileSourceBase(
+    "CartoDark", 0, 20, 256, ".png",
+    arrayOf("https://basemaps.cartocdn.com/dark_all/")
+) {
+    override fun getTileURLString(pMapTileIndex: Long): String =
+        baseUrl + MapTileIndex.getZoom(pMapTileIndex) + "/" +
+            MapTileIndex.getX(pMapTileIndex) + "/" +
+            MapTileIndex.getY(pMapTileIndex) + mImageFilenameEnding
+}
 
 /**
  * Rendu de la carte avec OpenStreetMap (osmdroid) — aucune clé API requise.
@@ -36,9 +54,12 @@ internal fun OsmMapSection(
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
 
+    // Icône voiture stylisée (design system) pour les chauffeurs à proximité
+    val carIcon = remember { ContextCompat.getDrawable(context, R.drawable.ic_map_car) }
+
     val mapView = remember {
         MapView(context).apply {
-            setTileSource(TileSourceFactory.MAPNIK)
+            setTileSource(if (MapConfig.DARK_MODE) darkTileSource() else TileSourceFactory.MAPNIK)
             setMultiTouchControls(true)
             controller.setZoom(MapConfig.MAP_ZOOM_DEFAULT)
             controller.setCenter(GeoPoint(initialPoint.latitude, initialPoint.longitude))
@@ -93,7 +114,8 @@ internal fun OsmMapSection(
                     position = GeoPoint(lat, lng)
                     title = "${v.brand} ${v.model}"
                     snippet = v.licensePlate
-                    setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
+                    icon = carIcon
+                    setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
                 }.also(view.overlays::add)
             }
 

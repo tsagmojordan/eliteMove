@@ -21,6 +21,9 @@ val DEFAULT_MAP_POINT = MapPoint(4.0511, 9.7679)
 object MapConfig {
     const val USE_OPENSTREETMAP = true
 
+    /** Style sombre "Night" de la carte — rendu premium luxueux. */
+    const val DARK_MODE = true
+
     /** Zoom initial de la carte. */
     const val MAP_ZOOM_DEFAULT = 12.0
 

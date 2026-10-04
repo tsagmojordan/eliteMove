@@ -325,7 +325,7 @@ fun AssignRolesDialog(
                 onClick = { onConfirm(selectedIds.value.toList()) },
                 colors = ButtonDefaults.buttonColors(containerColor = AccentGold)
             ) {
-                Text("Enregistrer", color = Color.White, fontWeight = FontWeight.Bold)
+                Text("Enregistrer", color = PrimaryDark, fontWeight = FontWeight.Bold)
             }
         },
         dismissButton = {

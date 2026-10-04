@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Marqueur "chauffeur à proximité" — voiture stylisée vue de dessus,
+     pastille dorée sur fond bleu marine (design system premium). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="44dp"
+    android:height="44dp"
+    android:viewportWidth="48"
+    android:viewportHeight="48">
+
+    <!-- Pastille -->
+    <path
+        android:fillColor="#0A1228"
+        android:pathData="M24,24m-22,0a22,22 0 1,1 44,0a22,22 0 1,1 -44,0" />
+    <path
+        android:fillColor="#FACC15"
+        android:pathData="M24,24m-20,0a20,20 0 1,1 40,0a20,20 0 1,1 -40,0" />
+
+    <!-- Rétroviseurs -->
+    <path
+        android:fillColor="#0A1228"
+        android:pathData="M13.5,20.5h2.5v3.5h-2.5z M32,20.5h2.5v3.5h-2.5z" />
+
+    <!-- Carrosserie (vue de dessus) -->
+    <path
+        android:fillColor="#0A1228"
+        android:pathData="M15,20.5a5,5 0 0,1 5,-5h8a5,5 0 0,1 5,5v7a5,5 0 0,1 -5,5h-8a5,5 0 0,1 -5,-5z" />
+
+    <!-- Toit / pare-brise -->
+    <path
+        android:fillColor="#FACC15"
+        android:pathData="M17.5,22h13v4.5h-13z" />
+</vector>

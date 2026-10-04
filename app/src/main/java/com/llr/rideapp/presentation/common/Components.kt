@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.*
@@ -140,8 +141,8 @@ fun AppCard(
     Card(
         modifier = cardModifier,
         colors = CardDefaults.cardColors(containerColor = SurfaceCard),
-        shape = RoundedCornerShape(16.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+        shape = RoundedCornerShape(20.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
         content = {
             Column(
                 modifier = Modifier.padding(16.dp),
@@ -187,13 +188,24 @@ fun RideAppTopBar(
     TopAppBar(
         title = {
             if (showLogo) {
-                Image(
-                    painter = androidx.compose.ui.res.painterResource(id = com.llr.rideapp.R.drawable.logo_app),
-                    contentDescription = "App Logo",
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clip(CircleShape)
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Image(
+                        painter = androidx.compose.ui.res.painterResource(id = com.llr.rideapp.R.drawable.logo_app),
+                        contentDescription = "App Logo",
+                        modifier = Modifier
+                            .size(34.dp)
+                            .clip(CircleShape)
+                    )
+                    Text(
+                        text = "Elite Move",
+                        color = AccentGold,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 20.sp
+                    )
+                }
             } else if (title != null) {
                 Text(
                     text = title,
@@ -232,7 +244,7 @@ fun RideAppTopBar(
             }
             if (onLogout != null) {
                 IconButton(onClick = onLogout) {
-                    Icon(Icons.Filled.Logout, contentDescription = "Déconnexion", tint = TextSecondary)
+                    Icon(Icons.Filled.Logout, contentDescription = "Déconnexion", tint = AccentGold)
                 }
             }
         },
@@ -274,5 +286,51 @@ fun GradientBackground(
                 )
             ),
         content = content
+    )
+}
+
+// ─── RideAppFilterChip ───────────────────────────────────────────────────────
+// Chip arrondie premium : icône minimaliste + libellé, active en doré
+// (texte marine foncé pour le contraste).
+
+/** Icône minimaliste associée à chaque catégorie de véhicule (design system). */
+fun com.llr.rideapp.domain.model.VehiculeClass.categoryIcon(): ImageVector = when (this) {
+    com.llr.rideapp.domain.model.VehiculeClass.ECO -> Icons.Outlined.Eco
+    com.llr.rideapp.domain.model.VehiculeClass.CONFORT -> Icons.Outlined.Chair
+    com.llr.rideapp.domain.model.VehiculeClass.PREMIUM -> Icons.Outlined.Diamond
+    else -> Icons.Outlined.LocalShipping
+}
+
+@Composable
+fun RideAppFilterChip(
+    selected: Boolean,
+    icon: ImageVector,
+    label: String,
+    onClick: () -> Unit
+) {
+    FilterChip(
+        selected = selected,
+        onClick = onClick,
+        label = {
+            Text(label, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+        },
+        leadingIcon = {
+            Icon(icon, contentDescription = null, modifier = Modifier.size(16.dp))
+        },
+        shape = RoundedCornerShape(20.dp),
+        colors = FilterChipDefaults.filterChipColors(
+            containerColor = SurfaceCard,
+            labelColor = TextPrimary,
+            iconColor = TextSecondary,
+            selectedContainerColor = AccentGold,
+            selectedLabelColor = PrimaryDark,
+            selectedLeadingIconColor = PrimaryDark
+        ),
+        border = FilterChipDefaults.filterChipBorder(
+            enabled = true,
+            selected = selected,
+            borderColor = TextSecondary.copy(alpha = 0.3f),
+            selectedBorderColor = AccentGold
+        )
     )
 }

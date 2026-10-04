@@ -203,14 +203,11 @@ fun AdminEditVehicleScreen(
                     Spacer(modifier = Modifier.height(8.dp))
                     LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         items(VehiculeClass.values()) { cls ->
-                            FilterChip(
+                            RideAppFilterChip(
                                 selected = viewModel.vehiculeClass == cls,
-                                onClick = { viewModel.vehiculeClass = cls },
-                                label = { Text(cls.name) },
-                                colors = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = AccentGold,
-                                    selectedLabelColor = Color.White
-                                )
+                                icon = cls.categoryIcon(),
+                                label = cls.name,
+                                onClick = { viewModel.vehiculeClass = cls }
                             )
                         }
                     }
